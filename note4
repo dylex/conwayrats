@@ -1,0 +1,81 @@
+Here a,b,c represent the number of 1s,2s,3s respectively.
+
+The only cases that add digits are those where a=0 and c>0.
+For something to diverge, it must visit these cases infinitely often.
+
+As an example, for a=b=0 (only 3s), assuming large c, this becomes:
+  1     1     c-1   (from a=b=0)
+  2     2     c-3   (from c>a+b)
+  4     4     c-7   (from c>a+b)
+  ...
+Eventually, A+B>C, at which point this becomes to a C=0 case.
+
+The only cases that result in values where a=0 and c>0 are when c=0 and a>=b,
+so any divergent series must also visit these cases infinitely often.
+
+Note that if we ever reach a case where a<b (and c=0), this results in:
+  b-a    0      a    (from a<b,c=0)
+And this case has eliminated a-1 digits, so as long as a>1 and it's
+visited at least once before returning to c=0, it cannot diverge.
+If a=1, this becomes:
+  2a-1   b-2a-1 1    (from a>c,b=0)
+Which also eliminates a digit.
+
+So let's say we start with a>=b, we get:
+  0      a-b      2b    (from a>b,c=0)
+  a-3b+2 4b-1     0     if a>=3b (from b>=c,a=0)
+Here we've returned to a case with C=0, but have decreased A and increased B.
+If we iterate this, eventually we will get to A<B (covered above), or A<3B, which becomes:
+  2       2a-2b-1  3b-a  else (if a<3b) (from b<c,a=0)
+  3a-5b+5 6b-2a-4  0     if 5b<3a+1 (from a<b+c,c<a+b,a<c)
+This again brings us back to C=0, with decreased A.
+Otherwise:
+  4         4a-4b-2   5b-3a-3  else (if 5b>=3a+1) (from c>a+b)
+  7a-9b+13  10b-6a-14 0        if 9b<7a+5 (from a<b+c,c<a+b,a<c)
+Once again, C=0, and A is decreased.
+Otherwise:
+  8         8a-8b-4  9b-7a-5   else (if 9b>=7a+5) (from c>a+b)
+Repeating the above, and theoretically this cycle could continue.
+However, note that with each step, A is doubling, B is increasing (because A>B), and C is decreasing, but the total number of digits stays constant.
+This is clearly not sustainable, and at some point either C<A+B, resulting in the alternative C=0 case above, or A>B+C.
+In this final case, we immediately lose b digits.
+
+Remembering that the only way to increase the number of digits is to return to the a=0 case via the c=0 case, the point is that each path that can return to c=0 has decreased a (and thus increased b).
+
+For example, here's a case of this progression in which we assume a>>b:
+  a        b       0
+  0        a-b     2b   if a>=b (from a>=b,c=0)
+  a-3b+2   4b-1    0    if a>3b (from b>c,a=0)
+  0        a-7b+1  8b-2 if a+3>=7b (from a>=b,c=0)
+  a-15b+5  16b-5   0    if a+3>15b (from b>c,a=0)
+  ...                   if a+10>=31b (from a>=b,c=0)
+Noting the progression of the conditions, at some point these must fail for non-zero b.
+Once it does, we either switch to the regime where B<C,A=0, which is covered above,
+or to where A<B,C=0, resulting in B=0.
+
+Case table and other notes below...
+
+case            example   sum                   a=1s    b=2s    c=3s    z=0s    delta   comments
+#b=c=0          11111111  a2                    0       a       0       0        0      covered by a>b,c=0
+#a=c=0          22222222  b4                    b       0       0       1        0      covered by a<b,c=0
+a=b=0,c>0       33333333  c6                    1       1       c-1     0       +1      adds
+                                                                                
+a>=b,c=0,b>=0   11111222  b3a-b2b3              0       a-b     2b      0        0      3no1
+#a=b,c=0        11112222  a+b3                  0       0       a+b     0        0      3no1
+a<b,c=0,a>=0    11122222  a3b-a4a3              b-a     0       a       a+1     -a+1 
+                                                                                
+#a>c,b=0        11111333  c4a-c2c4              2c-1    a-c-1   1       2       -1      covered by a>b+c
+#a=c,b=0        11113333  a+c4                  a+c     0       0       1        0
+#a<=c,b=0       11133333  a4c-a6a4              2a      0       c-a     1        0      covered by c>=a+b
+                                                                                
+b>=c,a=0        22222233  c5b-c4c5              b-c+2   2c-1    0       0       +1      adds to 1s>=2s if b+3>=3c
+#b=c,a=0        22223333  b+c5                  2       b+c-1   0       0       +1      adds to 1s>=2s if 3>=b+c -- capped
+b<=c,a=0        22233333  b5c-b6b5              2       2b-1    c-b     0       +1      adds to 1s>=2s if 3>=2b -- capped
+                                                                                
+a>b+c,b>=0      11111223  c4b3a-b-c2b3c4        2c-1    a-b-c-1 1+b     b+2     -b-1
+#a=b+c          11112233  c4b3b3c4              2c      0       0       2b+1    -2b     covered by a<b+c,a>c
+a<=b+c,a>c      111122233 c4a-c3b+c-a4a-c3c4    3c+b-a  0       0       2a-2c+1 -2a+2c
+#a=c            1122233   a4b4c4                a+b+c   0       0       1        0	covered by a<b+c,c<a+b,a<c
+c>=a+b,b>=0     11233333  a4b5c-a-b6b5a4        2a      2b      c-a-b   1        0
+#c=a+b          12223333  a4b5b5a4              2a      2b      0       1        0      1>=2 if a>=b, covered by c>a+b
+a<b+c,c<a+b,a<=c 1122333  a4c-a5a+b-c4c-a5a4    3a+b-c  2c-2a   0       1        0      1>=2 if 5a+b>=3c

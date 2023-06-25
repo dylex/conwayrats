@@ -6,12 +6,13 @@ module Con
   , conGE
   , conBounded
   , conFeasible
+  , conMin
   , initCon
   , substituteCon
   ) where
 
 import           Data.List (intercalate, union)
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, fromMaybe)
 import qualified Linear.Simplex.Simplex as LS
 import qualified Linear.Simplex.Types as LS
 import qualified Text.ParserCombinators.ReadP as RP
@@ -20,30 +21,29 @@ import qualified Text.Read as R
 import Param
 import Sym
 
-data Con = Con
-  { _conEQs :: [Sym]
-  , _conGEs :: [Sym]
+newtype Con = Con
+  { _conGEs :: [Sym]
   }
 
 instance Semigroup Con where
-  Con e1 g1 <> Con e2 g2 = Con (union e1 e2) (union g1 g2)
+  Con g1 <> Con g2 = Con (union g1 g2)
 
 instance Monoid Con where
-  mempty = Con mempty mempty
+  mempty = Con mempty
 
 conVars :: Con -> Int
-conVars (Con e g) = pred $ maximum $ map (length . symCoeffs) (e ++ g)
+conVars (Con g) = pred $ maximum $ map (length . symCoeffs) g
 
 conEQ, conLT, conLE, conGT, conGE :: Sym -> Sym -> Con
-conEQ x y = Con [x - y] []
+conEQ x y = Con [x - y, y - x]
 conLE x y = conGE y x
-conGE x y = Con [] [x - y]
+conGE x y = Con [x - y]
 conLT x y = conGT y x
 conGT x y = conGE x (y + 1)
 
 instance Show Con where
-  show (Con eq ge) = intercalate "," $ map (sh "=") eq ++ map (sh ">=") ge where
-    sh o s = show (Sym (0:s')) ++ o ++ show (negate c) where
+  show (Con ge) = intercalate "," $ map sh ge where
+    sh s = show (Sym (0:s')) ++ ">=" ++ show (negate c) where
       c:s' = symCoeffs s ++ [0]
 
 instance Read Con where
@@ -66,11 +66,8 @@ instance Read Con where
     char = R.lift . RP.char
 
 conLS :: Con -> [LS.PolyConstraint]
-conLS (Con eq ge) =
-  map (symcon LS.EQ) eq ++ map (symcon LS.GEQ) ge
-  where
-  symcon :: (LS.VarConstMap -> Rational -> LS.PolyConstraint) -> Sym -> LS.PolyConstraint
-  symcon pc sym = pc (zip [1..toInteger dim] x) (negate c) where
+conLS (Con ge) = map symcon ge where
+  symcon sym = LS.GEQ (zip [1..toInteger dim] x) (negate c) where
     c:x = map toRational $ symCoeffs sym ++ repeat 0
 
 conFeasibleLS :: Con -> Maybe (LS.DictionaryForm, [Integer], [Integer], Integer)
@@ -83,8 +80,13 @@ conBounded :: Con -> Bool
 conBounded = all (\(d,s,a,o) -> isJust $ LS.optimizeFeasibleSystem
   (LS.Max (map (, 1) [1..toInteger dim])) d s a o) . conFeasibleLS
 
+conMin :: Con -> Int
+conMin con = fromMaybe (-1) $ do
+  (o, v) <- LS.twoPhaseSimplex (LS.Min (map (, 1) [1..toInteger dim])) $ conLS con
+  ceiling <$> lookup o v
+
 initCon :: Con
-initCon = Con [] identity
+initCon = Con identity
 
 substituteCon :: [Sym] -> Con -> Con
-substituteCon sub (Con e g) = Con (map (substitute sub) e) (map (substitute sub) g)
+substituteCon sub (Con g) = Con (map (substitute sub) g)

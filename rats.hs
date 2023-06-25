@@ -3,6 +3,7 @@ import           System.Environment (getArgs)
 
 import Sym
 import RLE
+import Con
 import Case
 
 rleCase :: RLE Sym -> (Sym, RLE Sym, Sym)
@@ -31,7 +32,7 @@ allCases cases cs = do
 
 treeCases :: [Case] -> String -> [Case] -> IO ()
 treeCases cases pfx = mapM_ $ \c -> do
-  putStrLn $ pfx ++ show ({-caseCounts-} c)
+  putStrLn $ pfx ++ show (c) ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show (conMin (caseCon c))
   when (length pfx < 8) $
     treeCases cases (' ':pfx) $ applyCases cases c
 

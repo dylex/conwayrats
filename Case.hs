@@ -1,8 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Case
-  ( Case
-  , caseCounts
+  ( Case(..)
   , loadCases
   , initCase
   , applyCases

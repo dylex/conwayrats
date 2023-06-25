@@ -1,6 +1,7 @@
 import           Control.Monad (forever, when)
 import           System.Environment (getArgs)
 
+import Param
 import Sym
 import RLE
 import Con
@@ -41,7 +42,7 @@ main = do
   args <- getArgs
   case args of
     [] -> do
-      cases <- loadCases "case4"
+      cases <- loadCases ("case" ++ show base)
       -- firstCase cases initCase
       treeCases cases "" [initCase]
       {- forever $ do

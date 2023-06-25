@@ -67,11 +67,11 @@ substituteCase sub (Case con dig) =
 
 isNeg :: Con -> Sym -> Bool
 isNeg con sym = all (0 >=) (symCoeffs sym) && sym /= 0
-  || not (conFeasible $ con <> conGE sym 0)
+  -- || not (conFeasible $ con <> conGE sym 0)
 
 applyCase :: Case -> Case -> Maybe Case
 applyCase (Case incon indig) c
-  | conBounded con || scdig == 0 || isNeg con del = Nothing
+  | conBounded con || isNeg con del = Nothing
   | otherwise = Just $ Case con cdig
   where
   Case ccon cdig = substituteCase indig c

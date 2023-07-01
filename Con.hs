@@ -95,7 +95,7 @@ simplex obj con = do
   (o, v) <- LS.twoPhaseSimplex obj $ conLS con
   lookup o v
 
-minILP :: Sym -> Con -> IO (Maybe (Maybe Double))
+minILP :: Sym -> Con -> IO (Maybe (Double, [Double]))
 minILP obj (Con ges) = either fail return =<< runGlpk (do
   vars <- mapM (MP.withVariableName MP.nonNegInteger . T.singleton) $ take dim ['a'..'z']
   let expr (Sym []) = mempty
@@ -104,17 +104,20 @@ minILP obj (Con ges) = either fail return =<< runGlpk (do
   mapM_ (\c -> expr c MP..>= 0) ges
   s <- MP.optimizeIP
   case s of
-    MP.Optimal -> Right . Just . Just <$> MP.getObjectiveValue mobj
+    MP.Optimal -> do
+      ov <- MP.getObjectiveValue mobj
+      vv <- mapM MP.getVariableValue vars
+      return $ Right $ Just (ov, vv)
     MP.Infeasible -> return $ Right Nothing
-    MP.Unbounded -> return $ Right $ Just Nothing
+    MP.Unbounded -> return $ Right $ Just (1/0, [])
     _ -> return $ Left $ show s)
 
 conMin :: Con -> Int
 conMin con = maybe (-1) ceiling $
   simplex (LS.Min (map (, 1) [1..toInteger dim])) con
 
-conMinIO :: Con -> IO (Maybe Int)
-conMinIO con = fmap (maybe (-1) ceiling) <$> minILP (Sym (0:repeat 1)) con
+conMinIO :: Con -> IO (Maybe (Double, [Double]))
+conMinIO con = minILP (Sym (0:repeat 1)) con
 
 -- |Would adding this single constraint affect the system?
 conActive :: Sym -> Con -> Bool

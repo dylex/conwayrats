@@ -35,7 +35,7 @@ allCases cases cs = do
 showCase :: Case -> IO String
 showCase c = do
   m <- conMinIO $ caseCon c
-  return $ show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show m
+  return $ show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ maybe "?" show m
 
 treeCases :: [Case] -> String -> [Case] -> IO ()
 treeCases cases pfx = mapM_ $ \c -> do

@@ -32,18 +32,20 @@ allCases cases cs = do
   putStrLn ""
   allCases cases $ foldMap (applyCases cases) cs
 
-showCase :: Case -> String
-showCase c = show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show (conMin (caseCon c))
+showCase :: Case -> IO String
+showCase c = do
+  m <- conMinIO $ caseCon c
+  return $ show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show m
 
 treeCases :: [Case] -> String -> [Case] -> IO ()
 treeCases cases pfx = mapM_ $ \c -> do
-  putStrLn $ pfx ++ showCase c
+  putStrLn . (pfx ++) =<< showCase c
   when (length pfx < 8) $
     treeCases cases (' ':pfx) $ applyCases cases c
 
 runCases :: [Case] -> Case -> IO ()
 runCases cs x = do
-  putStrLn $ showCase x
+  putStrLn =<< showCase x
   case cs of
     c:r -> mapM_ (runCases r) $ applyCase x c
     _ -> return ()

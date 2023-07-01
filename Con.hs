@@ -7,6 +7,7 @@ module Con
   , conBounded
   , conFeasible
   , conMin
+  , conMinIO
   , initCon
   , substituteCon
   , simplifyCon
@@ -15,8 +16,11 @@ module Con
 import           Control.Arrow (first, second)
 import           Data.List (intercalate, union)
 import           Data.Maybe (isJust)
+import qualified Data.Text as T
 import qualified Linear.Simplex.Simplex as LS
 import qualified Linear.Simplex.Types as LS
+import qualified Math.Programming as MP
+import           Math.Programming.Glpk (runGlpk)
 import qualified Text.ParserCombinators.ReadP as RP
 import qualified Text.Read as R
 
@@ -91,9 +95,26 @@ simplex obj con = do
   (o, v) <- LS.twoPhaseSimplex obj $ conLS con
   lookup o v
 
+minILP :: Sym -> Con -> IO (Maybe (Maybe Double))
+minILP obj (Con ges) = either fail return =<< runGlpk (do
+  vars <- mapM (MP.withVariableName MP.nonNegInteger . T.singleton) $ take dim ['a'..'z']
+  let expr (Sym []) = mempty
+      expr (Sym (c:v)) = mconcat $ MP.con (fromIntegral c) : zipWith ((MP.*.) . fromIntegral) v vars
+  mobj <- MP.minimize $ expr obj
+  mapM_ (\c -> expr c MP..>= 0) ges
+  s <- MP.optimizeIP
+  case s of
+    MP.Optimal -> Right . Just . Just <$> MP.getObjectiveValue mobj
+    MP.Infeasible -> return $ Right Nothing
+    MP.Unbounded -> return $ Right $ Just Nothing
+    _ -> return $ Left $ show s)
+
 conMin :: Con -> Int
 conMin con = maybe (-1) ceiling $
   simplex (LS.Min (map (, 1) [1..toInteger dim])) con
+
+conMinIO :: Con -> IO (Maybe Int)
+conMinIO con = fmap (maybe (-1) ceiling) <$> minILP (Sym (0:repeat 1)) con
 
 -- |Would adding this single constraint affect the system?
 conActive :: Sym -> Con -> Bool

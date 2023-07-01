@@ -1,5 +1,6 @@
 import           Control.Monad (forever, when)
 import           System.Environment (getArgs)
+import           Text.Read (readMaybe)
 
 import Param
 import Sym
@@ -31,18 +32,28 @@ allCases cases cs = do
   putStrLn ""
   allCases cases $ foldMap (applyCases cases) cs
 
+showCase :: Case -> String
+showCase c = show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show (conMin (caseCon c))
+
 treeCases :: [Case] -> String -> [Case] -> IO ()
 treeCases cases pfx = mapM_ $ \c -> do
-  putStrLn $ pfx ++ show (c) ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ show (conMin (caseCon c))
+  putStrLn $ pfx ++ showCase c
   when (length pfx < 8) $
     treeCases cases (' ':pfx) $ applyCases cases c
+
+runCases :: [Case] -> Case -> IO ()
+runCases cs x = do
+  putStrLn $ showCase x
+  case cs of
+    c:r -> mapM_ (runCases r) $ applyCase x c
+    _ -> return ()
 
 main :: IO ()
 main = do
   args <- getArgs
+  cases <- loadCases ("case" ++ show base)
   case args of
     [] -> do
-      cases <- loadCases ("case" ++ show base)
       -- firstCase cases initCase
       treeCases cases "" [initCase]
       {- forever $ do
@@ -54,11 +65,15 @@ main = do
       -}
       {- print $ rleCase $ read l -}
       print $ (read l :: Case) -}
-    [a] -> do
-      mapM_ print $ iterate race (read a :: RLE Int)
-      -- mapM_ print cases
-    subs -> do
-      let s = map read subs
+    [a] 
+      | Just x <- readMaybe a ->
+        mapM_ print $ iterate race (x :: RLE Int)
+      | Just cs <- mapM (lookupCase cases) $ map return a ->
+        runCases (cycle cs) initCase
+    _ -> fail "unknown argument"
+      {-
+      let s = map read args
       forever $ do
         e <- getLine
         print $ substitute s $ read e
+      -}

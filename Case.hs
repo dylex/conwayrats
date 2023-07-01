@@ -5,9 +5,12 @@ module Case
   , loadCases
   , initCase
   , applyCases
+  , applyCase
+  , lookupCase
   ) where
 
 import           Control.Applicative ((<|>))
+import           Control.Monad (guard)
 import           Data.List (find, intercalate)
 import           Data.Maybe (mapMaybe)
 import qualified Text.Read as R
@@ -20,15 +23,17 @@ import Con
 data Case = Case
   { caseCon :: Con
   , caseCounts :: [Sym]
+  , caseLabel :: String
   }
 
 instance Show Case where
-  show (Case c s) = show c ++ ": " ++ intercalate ", " (map show s)
+  show (Case c s l) = show c ++ ": " ++ intercalate ", " (map show s) ++ " [" ++ l ++ "]"
 
 instance Read Case where
   readPrec = Case
     <$> R.readPrec
     <*> (space >> char ':' >> syms)
+    <*> (space >> R.lift (RP.option "" (RP.between (RP.char '[') (RP.char ']') (RP.munch (']' /=)))))
     where
     syms = do
       space
@@ -38,7 +43,7 @@ instance Read Case where
     space = R.lift RP.skipSpaces
 
 checkCase :: Case -> Bool
-checkCase (Case con counts) =
+checkCase (Case con counts _) =
   length counts == dim && conVars con <= dim
 
 checkCases :: [Case] -> Maybe (Case, Case)
@@ -59,25 +64,29 @@ loadCases f = do
   filt _ = True
 
 initCase :: Case
-initCase = Case initCon identity
+initCase = Case initCon identity ""
 
 substituteCase :: [Sym] -> Case -> Case
-substituteCase sub (Case con dig) =
-  Case (substituteCon sub con) (map (substitute sub) dig)
+substituteCase sub (Case con dig l) =
+  Case (substituteCon sub con) (map (substitute sub) dig) l
 
 isNeg :: Con -> Sym -> Bool
 isNeg con sym = all (0 >=) (symCoeffs sym) && sym /= 0
   -- || not (conFeasible $ con <> conGE sym 0)
 
 applyCase :: Case -> Case -> Maybe Case
-applyCase (Case incon indig) c
-  | conBounded con || isNeg con del = Nothing
-  | otherwise = Just $ Case con cdig
+applyCase (Case incon indig l) c = do
+  con <- simplifyCon $ incon <> ccon
+  guard $ not $ conBounded con
+  guard $ not $ isNeg con del
+  return $ Case con cdig (l ++ cl)
   where
-  Case ccon cdig = substituteCase indig c
-  con = incon <> ccon
+  Case ccon cdig cl = substituteCase indig c
   scdig = sum cdig
   del = scdig - sum indig
 
 applyCases :: [Case] -> Case -> [Case]
 applyCases cs c = mapMaybe (applyCase c) cs
+
+lookupCase :: [Case] -> String -> Maybe Case
+lookupCase cs l = find ((l ==) . caseLabel) cs

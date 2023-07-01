@@ -2,9 +2,12 @@ module Sym
   ( Sym(..)
   , identity
   , substitute
+  , isConst
   ) where
 
+import           Control.Monad (guard)
 import           Data.Maybe (maybeToList)
+import qualified Text.ParserCombinators.ReadP as RP
 import qualified Text.Read as R
 
 import Param
@@ -71,9 +74,13 @@ instance Read Sym where
         '+' -> return (+)
         '-' -> return (-)
         _ -> R.pfail
-    term = R.prec 9 $ do
-      n <- R.readPrec R.<++ return 1
-      v <- var R.<++ return 0
+    term = R.prec 9 $ coeff R.<++ const
+    const = do
+      n <- R.readPrec
+      return $ Sym [n]
+    coeff = do
+      n <- R.readPrec R.<++ (R.lift (RP.char '-') >> return (-1)) R.<++ return 1
+      v <- var
       return $ n *: v
     var = do
       c <- R.get
@@ -86,3 +93,7 @@ identity = map (1 *:) [1..dim]
 substitute :: [Sym] -> Sym -> Sym
 substitute sub (Sym (c:v)) = sum $ Sym [c] : zipWith (\s x -> Sym [x] * s) sub v
 substitute _ (Sym []) = Sym []
+
+isConst :: Sym -> Maybe Int
+isConst (Sym []) = Just 0
+isConst (Sym (c:r)) = c <$ guard (all (0 ==) r)

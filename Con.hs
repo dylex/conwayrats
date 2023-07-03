@@ -97,6 +97,7 @@ simplex obj con = do
 
 minILP :: Sym -> Con -> IO (Maybe (Double, [Double]))
 minILP obj (Con ges) = either fail return =<< runGlpk (do
+  MP.setTimeout 1
   vars <- mapM (MP.withVariableName MP.nonNegInteger . T.singleton) $ take dim ['a'..'z']
   let expr (Sym []) = mempty
       expr (Sym (c:v)) = mconcat $ MP.con (fromIntegral c) : zipWith ((MP.*.) . fromIntegral) v vars

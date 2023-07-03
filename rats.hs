@@ -1,5 +1,8 @@
 import           Control.Monad (forever, when)
+import           Data.List (isPrefixOf)
+import           Data.Maybe (isJust)
 import           System.Environment (getArgs)
+import           System.IO (hFlush, stdout)
 import           Text.Read (readMaybe)
 
 import Param
@@ -32,20 +35,27 @@ allCases cases cs = do
   putStrLn ""
   allCases cases $ foldMap (applyCases cases) cs
 
-showCase :: Case -> IO String
-showCase c = do
-  m <- conMinIO $ caseCon c
-  return $ show c ++ " " ++ show (sum $ caseCounts c) ++ ">=" ++ maybe "?" show m
+blacklist = ["JEHEC", "JEIJJKEC", "JEIJKEC", "JEIKEC", "JJEHEC", "JJEIJKEC", "JJEIKEC", "JJJEHEC", "JJJEIKEC", "JJJJEHEC", "KEHECJK"]
+
+showCase :: String -> Case -> IO ()
+showCase pfx c = do
+  putStr $ pfx ++ show c ++ " " ++ show s ++ " "
+  hFlush stdout
+  m <- if isJust (isConst s) || any (`isPrefixOf` caseLabel c) blacklist then return Nothing else
+    conMinIO $ caseCon c
+  putStrLn $ maybe "?" show m
+  where
+  s = sum $ caseCounts c
 
 treeCases :: [Case] -> String -> [Case] -> IO ()
 treeCases cases pfx = mapM_ $ \c -> do
-  putStrLn . (pfx ++) =<< showCase c
+  showCase pfx c
   when (length pfx < 8) $
     treeCases cases (' ':pfx) $ applyCases cases c
 
 runCases :: [Case] -> Case -> IO ()
 runCases cs x = do
-  putStrLn =<< showCase x
+  showCase "" x
   case cs of
     c:r -> mapM_ (runCases r) $ applyCase x c
     _ -> return ()

@@ -1,0 +1,29 @@
+cabal-version:       >=1.10
+name:                conwayrats
+version:             0.1.0.0
+synopsis:            Exploration tool for Conway's RATS (mainly base 4)
+license:             BSD3
+author:              Dylan Simon
+maintainer:          dylan@dylex.net
+copyright:           2023, Dylan Simon
+category:            Math
+build-type:          Simple
+extra-source-files:  README
+data-files:          case4
+
+source-repository head
+  type:     git
+  location: https://github.com/dylex/conwayrats
+
+executable rats
+  hs-source-dirs: .
+  main-is:  rats.hs
+  build-depends:       
+    base,
+    text,
+    simplex-method,
+    math-programming,
+    math-programming-glpk
+  default-language:    Haskell2010
+  ghc-options: -Wall -O -threaded
+

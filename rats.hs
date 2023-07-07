@@ -1,91 +1,118 @@
-import           Control.Monad (forever, when)
-import           Data.List (isPrefixOf)
+{-# LANGUAGE RecordWildCards #-}
+
+import           Control.Monad (when)
+import           Data.Function ((&))
+import           Data.List (intercalate)
 import           Data.Maybe (isJust)
-import           System.Environment (getArgs)
-import           System.IO (hFlush, stdout)
+import qualified System.Console.GetOpt as GetOpt
+import           System.Directory (doesFileExist)
+import           System.Environment (getProgName, getArgs)
+import           System.Exit (exitFailure)
+import           System.IO (hPutStrLn, hFlush, stdout, stderr)
 import           Text.Read (readMaybe)
 
+import Paths_conwayrats (getDataFileName)
 import Param
 import Sym
 import RLE
 import Con
 import Case
 
-rleCase :: RLE Sym -> (Sym, RLE Sym, Sym)
-rleCase x = (n, y, countRLE y - n)
-  where
-  n = countRLE x
-  y = sortRLE $ carryRLE x
-
 race :: (Num r, Ord r) => RLE r -> RLE r
 race x = carryRLE $ s + flipRLE s where
   s = sortRLE x
 
-firstCase :: [Case] -> Case -> IO ()
-firstCase cases c = do
-  print c
-  let res = applyCases cases c
-  case res of
-    [] -> return ()
-    (c':_) -> firstCase cases c'
-
-allCases :: [Case] -> [Case] -> IO ()
-allCases cases cs = do
-  mapM_ print cs
-  putStrLn ""
-  allCases cases $ foldMap (applyCases cases) cs
-
-blacklist = ["JEHEC", "JEIJJKEC", "JEIJKEC", "JEIKEC", "JJEHEC", "JJEIJKEC", "JJEIKEC", "JJJEHEC", "JJJEIKEC", "JJJJEHEC", "KEHECJK"]
-
-showCase :: String -> Case -> IO ()
-showCase pfx c = do
-  putStr $ pfx ++ show c ++ " " ++ show s ++ " "
-  hFlush stdout
-  m <- if isJust (isConst s) || any (`isPrefixOf` caseLabel c) blacklist then return Nothing else
-    conMinIO $ caseCon c
-  putStrLn $ maybe "?" show m
+showCase :: Opt -> Case -> IO Bool
+showCase opt c = do
+  putStr $ show c ++ "\t" ++ show s
+  if isJust (isConst s)
+    then False <$ putStrLn ""
+  else if conBounded (caseCon c) then
+    False <$ putStrLn " bounded"
+  else do
+    hFlush stdout
+    maybe
+      (False <$ putStrLn " infeasible")
+      (\(m,x) ->
+        True <$ putStrLn (" >= " ++ showFloat m  ++ " (" ++ intercalate "," (map showFloat x) ++ ")"))
+      =<< (if optILP opt then conMinIO else return . conMin) (caseCon c)
   where
   s = sum $ caseCounts c
 
-treeCases :: [Case] -> String -> [Case] -> IO ()
-treeCases cases pfx = mapM_ $ \c -> do
-  showCase pfx c
-  when (length pfx < 8) $
-    treeCases cases (' ':pfx) $ applyCases cases c
+treeCases :: Opt -> [Case] -> Int -> Case -> IO ()
+treeCases opt cases depth c
+  | optTree opt < depth = return ()
+  | otherwise = mapM_ (\c' -> do
+      putStr $ replicate depth ' '
+      n <- showCase opt c'
+      when n $ treeCases opt cases (succ depth) c')
+      $ applyCases cases c
 
-runCases :: [Case] -> Case -> IO ()
-runCases cs x = do
-  showCase "" x
-  case cs of
-    c:r -> mapM_ (runCases r) $ applyCase x c
-    _ -> return ()
+showFloat :: Double -> String
+showFloat = show . (ceiling :: Double -> Integer)
+
+runCases :: Opt -> [Case] -> [Case] -> Case -> IO ()
+runCases opt cases cs c = do
+  n <- showCase opt c
+  when n $ case cs of
+    x:r -> maybe (putStrLn $ caseLabel x ++ " impossible") (runCases opt cases r) $ applyCase c x
+    [] -> treeCases opt cases 1 c
+
+data Opt = Opt
+  { optILP :: Bool
+  , optTree :: Int
+  , optDecr :: Bool
+  }
+
+defOpt :: Opt
+defOpt = Opt
+  { optILP = False
+  , optTree = 0
+  , optDecr = False
+  }
+
+optDescrs :: [GetOpt.OptDescr (Opt -> Opt)]
+optDescrs =
+  [ GetOpt.Option "i" ["ilp"]
+    (GetOpt.NoArg (\o -> o{ optILP = True }))
+    "Find minimum integral solution to constraints (rather than just simplex)"
+  , GetOpt.Option "t" ["tree"]
+    (GetOpt.OptArg (\a o -> o{ optTree = maybe 1 read a }) "DEPTH")
+    "Explore a tree of possibilites after specified case path"
+  , GetOpt.Option "d" ["decrease"]
+    (GetOpt.NoArg (\o -> o{ optDecr = True }))
+    "Allow exploring cases that decrease count"
+  ]
+
+caseFile :: String
+caseFile = "case" ++ show base
+
+usage :: IO a
+usage = do
+  prog <- getProgName
+  hPutStrLn stderr $ GetOpt.usageInfo (prog ++ " [OPTIONS] CASEPATH|NUMBER\n\
+\Run Conway's RATS, base " ++ show base ++ ".\n\
+\If given a simple number, follow it forever.\n\
+\If given a list of cases by letter (as specified in the " ++ caseFile ++ " file),\n\
+\  evaluate the conditions on the initial digit counts (a=1s,b=2s,...)\n\
+\  that would lead to this path of cases, and compute the minimum initial\n\
+\  digit counts necessary.\n") optDescrs
+  exitFailure
 
 main :: IO ()
 main = do
   args <- getArgs
-  cases <- loadCases ("case" ++ show base)
-  case args of
-    [] -> do
-      -- firstCase cases initCase
-      treeCases cases "" [initCase]
-      {- forever $ do
-      l <- getLine 
-      {-
-      let c = read l :: Con
-      print c
-      print $ conBounded dim c
-      -}
-      {- print $ rleCase $ read l -}
-      print $ (read l :: Case) -}
-    [a] 
-      | Just x <- readMaybe a ->
-        mapM_ print $ iterate race (x :: RLE Int)
-      | Just cs <- mapM (lookupCase cases) $ map return a ->
-        runCases (cycle cs) initCase
-    _ -> fail "unknown argument"
-      {-
-      let s = map read args
-      forever $ do
-        e <- getLine
-        print $ substitute s $ read e
-      -}
+  (opt, arg) <- case GetOpt.getOpt GetOpt.Permute optDescrs args of
+    (o, [a], []) -> return (foldl (&) defOpt o, a)
+    (_, _, err) -> do
+      mapM_ (hPutStrLn stderr) err
+      usage
+  maybe
+    (do
+      casefileexists <- doesFileExist caseFile
+      cases <- loadCases =<< if casefileexists then return caseFile else getDataFileName caseFile
+      maybe usage
+        (\cs -> runCases opt (filter ((optDecr opt ||) . not . isNeg . caseDelta) cases) cs initCase)
+        $ mapM (lookupCase cases) (map return arg))
+    (\x -> mapM_ print $ iterate race (x :: RLE Int))
+    $ readMaybe arg

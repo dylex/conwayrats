@@ -1,15 +1,13 @@
-# these expand:
-a=0,b=0,c>0:             1,      1,      c-1      [C]
-a=0,c>0,b>=c:            b-c+2,  2c-1,   0        [H]
-a=0,b>0,b<c:             2,      2b-1,   c-b      [I]
-# these stay:
-c=0,a>=b,b>0:            0,      a-b,    2b       [E]
-a>0,c>=a+b:              2a,     2b,     c-a-b    [J]
-a>0,b>0,a<b+c,c<a+b,a<=c:3a+b-c, 2c-2a,  0        [K]
-# these decrease:
-#c=0,a<b,a>1:            b-a,    0,      a        [D]
-#c>0,a>b+c:              2c-1,   a-b-c-1,1+b      [M]
-#b>0,c>0,a<=b+c,a>c:     3c+b-a, 0,      0        [L]
-# these cycle: 
-#b=0,c=0: 0,a,0					  [A]
-#a=0,c=0,b>0: b,0,0                               [B]
+0,      a,      0	if b=0,c=0,a>=0            [A] 0
+b,      0,      0       if a=0,c=0,b>0             [B] 0
+1,      1,      c-1     if a=0,b=0,c>0             [C] 1
+b-a,    0,      a       if c=0,a<b,a>1             [D] -a
+0,      a-b,    2b      if c=0,a>=b,b>0            [E] 0
+# F: covered by M
+# G: covered by J
+b-c+2,  2c-1,   0       if a=0,c>0,b>=c            [H] 1
+2,      2b-1,   c-b     if a=0,b>0,b<c             [I] 1
+2a,     2b,     c-a-b   if a>0,c>=a+b,b>=0         [J] 0
+3a+b-c, 2c-2a,  0       if a>0,b>0,c<a+b,a<=c      [K] 0
+3c+b-a, 0,      0       if b>0,c>0,a<=b+c,a>c      [L] -2a+2c
+2c-1,   a-b-c-1,1+b     if c>0,a>b+c,b>=0          [M] -b-1

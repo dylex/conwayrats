@@ -8,7 +8,7 @@ maintainer:          dylan@dylex.net
 copyright:           2023, Dylan Simon
 category:            Math
 build-type:          Simple
-extra-source-files:  README
+extra-source-files:  README.md
 data-files:          case4
 
 source-repository head
@@ -18,8 +18,16 @@ source-repository head
 executable rats
   hs-source-dirs: .
   main-is:  rats.hs
+  other-modules:
+    Paths_conwayrats,
+    Param,
+    Sym,
+    RLE,
+    Con,
+    Case
   build-depends:       
     base,
+    directory,
     text,
     simplex-method,
     math-programming,

@@ -55,27 +55,29 @@ or to of [D], resulting in B=0.
 
 Case table and other notes below...
 
+See also https://cocalc.com/share/public_paths/7c01e4dc87ce83b0b9a8345dc91f71abd85e74e4
+
 case            example   sum                   a=1s    b=2s    c=3s    z=0s    delta   comments
-#b=c=0          11111111  a2                    0       a       0       0        0      [A] covered by a>b,c=0
-#a=c=0          22222222  b4                    b       0       0       1        0      [B] covered by a<b,c=0
+#b=c=0          11111111  a2                    0       a       0       0        0      [A] covered by E
+#a=c=0          22222222  b4                    b       0       0       1        0      [B] covered by D
 a=b=0,c>0       33333333  c6                    1       1       c-1     0       +1      [C] adds
                                                                                 
 a>=b,c=0,b>=0   11111222  b3a-b2b3              0       a-b     2b      0        0      [E] 3no1
 #a=b,c=0        11112222  a+b3                  0       0       a+b     0        0      3no1
 a<b,c=0,a>=0    11122222  a3b-a4a3              b-a     0       a       a+1     -a      [D]
                                                                                 
-#a>c,b=0        11111333  c4a-c2c4              2c-1    a-c-1   1       2       -1      [F] covered by a>b+c
+#a>c,b=0        11111333  c4a-c2c4              2c-1    a-c-1   1       2       -1      [F] covered by M
 #a=c,b=0        11113333  a+c4                  a+c     0       0       1        0      
-#a<=c,b=0       11133333  a4c-a6a4              2a      0       c-a     1        0      [G] covered by c>=a+b
+#a<=c,b=0       11133333  a4c-a6a4              2a      0       c-a     1        0      [G] covered by J
                                                                                 
 b>=c,a=0        22222233  c5b-c4c5              b-c+2   2c-1    0       0       +1      [H] adds to 1s>=2s if b+3>=3c
 #b=c,a=0        22223333  b+c5                  2       b+c-1   0       0       +1      adds to 1s>=2s if 3>=b+c -- capped
 b<=c,a=0        22233333  b5c-b6b5              2       2b-1    c-b     0       +1      [I] adds to 1s>=2s if 3>=2b -- capped
                                                                                 
 a>b+c,b>=0      11111223  c4b3a-b-c2b3c4        2c-1    a-b-c-1 1+b     b+2     -b-1    [M]
-#a=b+c          11112233  c4b3b3c4              2c      0       0       2b+1    -2b     covered by a<b+c,a>c
+#a=b+c          11112233  c4b3b3c4              2c      0       0       2b+1    -2b     covered by L
 a<=b+c,a>c      111122233 c4a-c3b+c-a4a-c3c4    3c+b-a  0       0       2a-2c+1 -2a+2c  [L]
-#a=c            1122233   a4b4c4                a+b+c   0       0       1        0	covered by a<b+c,c<a+b,a<c
+#a=c            1122233   a4b4c4                a+b+c   0       0       1        0	covered by K
 c>=a+b,b>=0     11233333  a4b5c-a-b6b5a4        2a      2b      c-a-b   1        0      [J]
-#c=a+b          12223333  a4b5b5a4              2a      2b      0       1        0      1>=2 if a>=b, covered by c>a+b
+#c=a+b          12223333  a4b5b5a4              2a      2b      0       1        0      1>=2 if a>=b, covered by J
 a<b+c,c<a+b,a<=c 1122333  a4c-a5a+b-c4c-a5a4    3a+b-c  2c-2a   0       1        0      [K] 1>=2 if 5a+b>=3c

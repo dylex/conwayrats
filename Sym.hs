@@ -3,6 +3,7 @@ module Sym
   , identity
   , substitute
   , isConst
+  , isNeg
   ) where
 
 import           Control.Monad (guard)
@@ -74,8 +75,8 @@ instance Read Sym where
         '+' -> return (+)
         '-' -> return (-)
         _ -> R.pfail
-    term = R.prec 9 $ coeff R.<++ const
-    const = do
+    term = R.prec 9 $ coeff R.<++ cnst
+    cnst = do
       n <- R.readPrec
       return $ Sym [n]
     coeff = do
@@ -97,3 +98,6 @@ substitute _ (Sym []) = Sym []
 isConst :: Sym -> Maybe Int
 isConst (Sym []) = Just 0
 isConst (Sym (c:r)) = c <$ guard (all (0 ==) r)
+
+isNeg :: Sym -> Bool
+isNeg sym = all (0 >=) (symCoeffs sym) && sym /= 0

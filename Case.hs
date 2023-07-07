@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
 module Case
@@ -10,7 +11,6 @@ module Case
   ) where
 
 import           Control.Applicative ((<|>))
-import           Control.Monad (guard)
 import           Data.List (find, intercalate)
 import           Data.Maybe (mapMaybe)
 import qualified Text.Read as R
@@ -21,19 +21,21 @@ import Sym
 import Con
 
 data Case = Case
-  { caseCon :: Con
-  , caseCounts :: [Sym]
+  { caseCounts :: [Sym]
+  , caseCon :: Con
   , caseLabel :: String
+  , caseDelta :: Sym
   }
 
 instance Show Case where
-  show (Case c s l) = show c ++ ": " ++ intercalate ", " (map show s) ++ " [" ++ l ++ "]"
+  show (Case s c l d) = intercalate ", " (map show s) ++ "\tif " ++ show c ++ "\t[" ++ l ++ "] " ++ show d
 
 instance Read Case where
   readPrec = Case
-    <$> R.readPrec
-    <*> (space >> char ':' >> syms)
+    <$> syms
+    <*> (space >> char 'i' >> char 'f' >> space >> R.readPrec)
     <*> (space >> R.lift (RP.option "" (RP.between (RP.char '[') (RP.char ']') (RP.munch (']' /=)))))
+    <*> (space >> R.readPrec)
     where
     syms = do
       space
@@ -43,8 +45,8 @@ instance Read Case where
     space = R.lift RP.skipSpaces
 
 checkCase :: Case -> Bool
-checkCase (Case con counts _) =
-  length counts == dim && conVars con <= dim
+checkCase Case{..} =
+  length caseCounts == dim && conVars caseCon <= dim
 
 checkCases :: [Case] -> Maybe (Case, Case)
 checkCases [] = Nothing
@@ -56,7 +58,7 @@ checkCases (c:l)
 loadCases :: FilePath -> IO [Case]
 loadCases f = do
   c <- map read . filter filt . lines <$> readFile f
-  mapM_ (fail . show) $ checkCases c
+  mapM_ (\(a,b) -> fail $ "invalid/overlapping cases:\n" ++ show a ++ "\n" ++ show b) $ checkCases c
   return c
   where
   filt [] = False
@@ -64,26 +66,26 @@ loadCases f = do
   filt _ = True
 
 initCase :: Case
-initCase = Case initCon identity ""
+initCase = Case identity initCon "" 0
 
 substituteCase :: [Sym] -> Case -> Case
-substituteCase sub (Case con dig l) =
-  Case (substituteCon sub con) (map (substitute sub) dig) l
+substituteCase sub c@Case{..} = c
+  { caseCounts = map (substitute sub) caseCounts
+  , caseCon = substituteCon sub caseCon
+  , caseDelta = substitute sub caseDelta
+  }
 
-isNeg :: Con -> Sym -> Bool
-isNeg con sym = all (0 >=) (symCoeffs sym) && sym /= 0
-  -- || not (conFeasible $ con <> conGE sym 0)
+-- isNeg con sym = not (conFeasible $ con <> conGE sym 0)
 
 applyCase :: Case -> Case -> Maybe Case
-applyCase (Case incon indig l) c = do
+applyCase (Case indig incon l indel) c = do
   con <- simplifyCon $ incon <> ccon
-  guard $ not $ conBounded con
-  guard $ not $ isNeg con del
-  return $ Case con cdig (l ++ cl)
+  -- guard $ not $ conBounded con
+  -- guard $ not $ isNeg del
+  return $ Case cdig con (l ++ cl) del
   where
-  Case ccon cdig cl = substituteCase indig c
-  scdig = sum cdig
-  del = scdig - sum indig
+  Case cdig ccon cl cdel = substituteCase indig c
+  del = indel + cdel
 
 applyCases :: [Case] -> Case -> [Case]
 applyCases cs c = mapMaybe (applyCase c) cs

@@ -15,7 +15,7 @@ module Con
 
 import           Control.Arrow (first, second)
 import           Data.List (intercalate, union)
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, fromMaybe)
 import qualified Data.Text as T
 import qualified Linear.Simplex.Simplex as LS
 import qualified Linear.Simplex.Types as LS
@@ -113,9 +113,16 @@ minILP obj (Con ges) = either fail return =<< runGlpk (do
     MP.Unbounded -> return $ Right $ Just (1/0, [])
     _ -> return $ Left $ show s)
 
-conMin :: Con -> Int
-conMin con = maybe (-1) ceiling $
-  simplex (LS.Min (map (, 1) [1..toInteger dim])) con
+conMin :: Con -> Maybe (Double, [Double])
+conMin (Con []) = Just (0, [])
+conMin con = do
+  (o, v) <- LS.twoPhaseSimplex (LS.Min (map (, 1) vars)) $ conLS con
+  let vd = map (second realToFrac) v
+  m <- lookup o vd
+  let x = map (fromMaybe 0 . (`lookup` vd)) vars
+  return (m, x)
+  where
+  vars = [1..toInteger dim]
 
 conMinIO :: Con -> IO (Maybe (Double, [Double]))
 conMinIO con = minILP (Sym (0:repeat 1)) con
